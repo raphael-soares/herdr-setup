@@ -32,7 +32,8 @@ export function buildRows({ pinned, root, spaces, places, showSpaces, hideOpenFo
   const taken = new Set();
   const claim = (s) => (s && taken.add(s.id), s);
   const out = [];
-  for (const p of pinned) {
+  for (const given of pinned) {
+    const p = { ...given, path: given.path.replace(/(.)\/+$/, "$1") };
     const s = claim(local.find((x) => (p.name ? x.named && x.name === p.name : places[x.id] === p.path)));
     out.push({ kind: "pinned", label: p.name ?? base(p.path), path: p.path, name: p.name ?? null, s });
   }

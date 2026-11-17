@@ -52,9 +52,11 @@ export async function readHosts(settings) {
   return { hosts: r.stdout.split("\n").filter(Boolean), problems: [] };
 }
 
-// Repo top, git dir and common git dir of `path` (they differ in a worktree), or null outside git.
+// Repo top, git dir and common git dir of `path` (they differ in a worktree), or null
+// outside git or when git can't start.
 export async function gitInfo(path) {
-  const r = await exec("git", ["-C", path, "rev-parse", "--path-format=absolute", "--show-toplevel", "--git-dir", "--git-common-dir"]);
+  const r = await exec("git", ["-C", path, "rev-parse", "--path-format=absolute", "--show-toplevel", "--git-dir", "--git-common-dir"]).catch(() => null);
+  if (!r) return null;
   const [top, gitDir, commonDir] = r.stdout.split("\n");
   return r.code === 0 && commonDir ? { top, gitDir, commonDir } : null;
 }

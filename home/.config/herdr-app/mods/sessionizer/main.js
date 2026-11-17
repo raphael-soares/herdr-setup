@@ -156,7 +156,8 @@ export default class Sessionizer extends View {
   }
 
   async go(r) {
-    if (!r) return;
+    if (!r || this.going) return;
+    this.going = true;
     if (r.kind === "host") {
       this.dismiss();
       return this.openHost(r);
