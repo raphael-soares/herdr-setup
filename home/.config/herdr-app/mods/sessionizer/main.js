@@ -1,5 +1,6 @@
-// Sessionizer, like tmux-sessionizer: open spaces first (*), then the folders under
-// the configured roots that no open space is in. Type to filter, Enter goes.
+// Sessionizer, like tmux-sessionizer and sesh: pinned spaces first, then the repo root
+// of the current space, open spaces (*), and the folders under the configured roots
+// that no open space is in. Type to filter, Enter goes.
 // With props { source: "ssh" } it lists ssh hosts instead: each host is a tab
 // named after it in one space, reused if it is already open.
 // Settings live under `settings` in mod.json; mod.schema.json describes them.
@@ -8,9 +9,11 @@ import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { spaces, panes, run, home, notify, theme, settings as appSettings, props, closeOverlay, shared, setShared, checking } from "herdr";
 import { loadSettings } from "./settings.js";
-import { readRoots, scanFolders, readHosts } from "./sources.js";
+import { readRoots, scanFolders, readHosts, gitInfo, expand } from "./sources.js";
+import { nameFor, buildRows, matches } from "./rows.js";
 
 const DEFAULTS = {
+  pinned: [{ path: "~", name: "default" }],
   roots: [],
   depth: 1,
   hidden: false,
@@ -60,25 +63,11 @@ function place(s, all) {
   return all.find((p) => tabs.has(p.tab) && p.cwd)?.cwd || s.folder || null;
 }
 
-// Each character of the query appears in order in the text, like fzf.
-function matches(query, text) {
-  let i = 0;
-  const t = text.toLowerCase();
-  for (const ch of query.toLowerCase()) {
-    i = t.indexOf(ch, i);
-    if (i < 0) return false;
-    i++;
-  }
-  return true;
-}
-
 // "ctrl-n", "down", "alt-shift-k": modifiers joined to the key by "-".
 function chord(e) {
   const m = e.modifiers;
   return [m.control && "ctrl", m.alt && "alt", m.shift && "shift", m.platform && "cmd", e.key].filter(Boolean).join("-");
 }
-
-const spaceLabel = (s) => `* ${s.name}${s.machine ? `  (${s.machine})` : ""}`;
 
 export default class Sessionizer extends View {
   init(_props, cx) {
@@ -89,6 +78,7 @@ export default class Sessionizer extends View {
     this.at = 0;
     this.scroll = 0;
     this.folders = [];
+    this.root = null;
     this.hosts = [];
     this.input = InputState.new({ placeholder: this.ssh ? "Host…" : "Space or folder…" });
     this.input.on("change", (_e, cx) => {
@@ -112,6 +102,7 @@ export default class Sessionizer extends View {
         const r = await scanFolders(readRoots(settings, problems), settings);
         this.folders = r.folders;
         problems.push(...r.problems);
+        this.root = await this.repoRoot();
       }
       this.loading = false;
       if (problems.length) notify({ title: "Sessionizer", body: problems.join("\n"), level: "warning" });
@@ -121,6 +112,22 @@ export default class Sessionizer extends View {
 
   dismiss() {
     closeOverlay(props().overlay);
+  }
+
+  // The repo root of the shown space when its terminal is below it, else null.
+  async repoRoot() {
+    const current = spaces().find((s) => s.active && s.machine === null);
+    const here = current && place(current, panes());
+    const git = here && (await gitInfo(here));
+    if (!git || git.top === here) return null;
+    return { path: git.top, name: nameFor(git.top, git) };
+  }
+
+  pinned() {
+    return this.config.pinned
+      .map((p) => (typeof p === "string" ? { path: p } : p))
+      .filter((p) => typeof p?.path === "string" && p.path)
+      .map((p) => ({ path: expand(p.path), name: typeof p.name === "string" && p.name ? p.name : null }));
   }
 
   sshSpace() {
@@ -133,23 +140,32 @@ export default class Sessionizer extends View {
       const tabs = this.sshSpace()?.tabs ?? [];
       out = this.hosts.map((h) => ({ kind: "host", label: h, tab: tabs.find((c) => c.named && c.name === h) }));
     } else {
-      const all = this.config.open_spaces ? spaces() : [];
       const live = panes();
-      const open = this.config.hide_open_folders ? spaces().filter((s) => s.machine === null).map((s) => place(s, live)).filter(Boolean) : [];
-      out = all.map((s) => ({ kind: "space", s, label: spaceLabel(s) }));
-      for (const d of this.folders) {
-        if (!open.some((p) => p === d.path || p.startsWith(d.path + "/"))) out.push({ kind: "folder", ...d });
-      }
+      const all = spaces();
+      out = buildRows({
+        pinned: this.pinned(),
+        root: this.root,
+        spaces: all,
+        places: Object.fromEntries(all.map((s) => [s.id, place(s, live)])),
+        showSpaces: this.config.open_spaces,
+        hideOpenFolders: this.config.hide_open_folders,
+        folders: this.folders,
+      });
     }
     return this.filter ? out.filter((r) => matches(this.filter, r.label)) : out;
   }
 
-  go(r) {
-    if (!r) return;
+  async go(r) {
+    if (!r || this.going) return;
+    this.going = true;
+    if (r.kind === "host") {
+      this.dismiss();
+      return this.openHost(r);
+    }
+    const name = r.s || r.name ? r.name : nameFor(r.path, await gitInfo(r.path));
     this.dismiss();
-    if (r.kind === "space") run("space.select", { id: r.s.id });
-    else if (r.kind === "folder") run("space.new", { folder: r.path, machine: "" });
-    else this.openHost(r);
+    if (r.s) run("space.select", { id: r.s.id });
+    else run("space.new", { ...(name ? { name } : {}), folder: r.path, machine: "" });
   }
 
   openHost(r) {
@@ -170,7 +186,7 @@ export default class Sessionizer extends View {
     if (n && is("down")) this.at = (this.at + 1) % n;
     else if (n && is("up")) this.at = (this.at + n - 1) % n;
     else if (is("close_space")) {
-      if (sel?.kind === "space" && !sel.s.active) run("space.close", { id: sel.s.id, confirmed: true });
+      if (sel?.s && !sel.s.active) run("space.close", { id: sel.s.id, confirmed: true });
     } else if (is("clear")) {
       this.input.set_value("");
       this.filter = "";
@@ -212,7 +228,7 @@ export default class Sessionizer extends View {
         .when(i === this.at, (el) => el.bg(t.hover))
         .hover((s) => s.bg(t.hover))
         .on_click(() => this.go(r));
-      if (r.kind === "space") {
+      if (r.s) {
         return base
           .child(h_flex().size(18).flex_none().rounded(5).bg(spaceColor(t, r.s)).items_center().justify_center().text_size(10.5).font_bold().text_color("#ffffff").child([...r.s.name][0]?.toUpperCase() ?? "?"))
           .child(div().flex_1().truncate().text_color(t.foreground).when(r.s.active, (d) => d.font_semibold()).child(r.label))
@@ -224,9 +240,9 @@ export default class Sessionizer extends View {
           .child(div().flex_1().truncate().text_color(t.foreground).child(r.label))
           .when(Boolean(r.tab), (el) => el.child(div().text_size(11).text_color(t.dim).child("open")));
       }
-      const shown = r.path.startsWith(home_ + "/") ? `~${r.path.slice(home_.length)}` : r.path;
+      const shown = r.path === home_ ? "~" : r.path.startsWith(home_ + "/") ? `~${r.path.slice(home_.length)}` : r.path;
       return base
-        .child(div().w(18).flex_none().text_color(t.muted).child("+"))
+        .child(div().w(18).flex_none().text_color(t.muted).child(r.kind === "root" ? "^" : "+"))
         .child(div().flex_none().text_color(t.foreground).child(r.label))
         .child(div().flex_1().min_w(0).truncate().text_right().text_size(11).text_color(t.dim).child(shown));
     };

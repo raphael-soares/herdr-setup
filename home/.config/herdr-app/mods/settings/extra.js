@@ -304,6 +304,9 @@ export class Extra {
         } else if (sub.type === "boolean") {
           row.child(div().text_size(12).text_color(t.dim).child(label(key)));
           row.child(this.host.toggle(t, `${id}-${i}-${key}`, entry[key] === true, (_e, cx) => change(key, entry[key] === true ? undefined : true, cx)));
+        } else if (sub.type === "string") {
+          row.child(div().text_size(12).text_color(t.dim).child(label(key)));
+          row.child(this.field(t, `${id}-${i}-${key}`, entry[key] ?? "", sub.title ?? label(key), (text, cx) => change(key, text || undefined, cx), 140));
         }
       }
       return row.child(this.remove(t, `${id}-${i}-x`, (_e, cx) => write(items.filter((_, j) => j !== i), cx)));

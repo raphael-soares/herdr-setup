@@ -1,6 +1,6 @@
 import { exec, home, appHome } from "herdr";
 
-const expand = (p) => (p === "~" ? home() : p.startsWith("~/") ? home() + p.slice(1) : p);
+export const expand = (p) => (p === "~" ? home() : p.startsWith("~/") ? home() + p.slice(1) : p);
 const shorten = (p) => (p.startsWith(home() + "/") ? `~${p.slice(home().length)}` : p);
 
 // Each root as { path, depth, optional }, from a string or an object in settings.
@@ -50,4 +50,13 @@ export async function readHosts(settings) {
   const r = await exec(`${appHome()}/mods/sessionizer/hosts.sh`, [expand(settings.ssh_config)]);
   if (r.code !== 0) return { hosts: [], problems: [r.stderr.trim().split("\n")[0] || `hosts.sh exited with ${r.code}`] };
   return { hosts: r.stdout.split("\n").filter(Boolean), problems: [] };
+}
+
+// Repo top, git dir and common git dir of `path` (they differ in a worktree), or null
+// outside git or when git can't start.
+export async function gitInfo(path) {
+  const r = await exec("git", ["-C", path, "rev-parse", "--path-format=absolute", "--show-toplevel", "--git-dir", "--git-common-dir"]).catch(() => null);
+  if (!r) return null;
+  const [top, gitDir, commonDir] = r.stdout.split("\n");
+  return r.code === 0 && commonDir ? { top, gitDir, commonDir } : null;
 }
