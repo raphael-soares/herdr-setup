@@ -4,7 +4,7 @@
   "sounds": {
     "enabled": true
   },
-  "font_ligatures": false,
+  "font_ligatures": true,
   "font": "JetBrainsMono Nerd Font",
   "font_size": 14,
   "terminal_line_height": 1,
@@ -14,7 +14,7 @@
   "ui_font": "Inter",
   "theme": "noctalia",
   "worktrees": {
-    "directory": "~/.workmux"
+    "directory": "~/.worktree"
   },
   "telemetry": false
 }

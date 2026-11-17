@@ -3,5 +3,7 @@
   "place": "none",
   "title": "Setup",
   "focusable": true,
-  "settings": { "pull_request_status": false }
+  "settings": {
+    "pull_request_status": false
+  }
 }
