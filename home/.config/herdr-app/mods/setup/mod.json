@@ -1,0 +1,7 @@
+{
+  "$schema": "./mod.schema.json",
+  "place": "none",
+  "title": "Setup",
+  "focusable": true,
+  "settings": { "pull_request_status": false }
+}
