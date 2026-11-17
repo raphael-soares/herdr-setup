@@ -1,8 +1,8 @@
-// Sessionizer: o mesmo do tmux (prefixo Tab). Spaces abertos primeiro (*), depois
-// as pastas do `pastas.sh` sem space aberto. Digite para filtrar,
-// ↑/↓ (ou ctrl-n/p, ctrl-j/k) e Enter para ir, ctrl-x fecha um space, Esc sai.
-// Com props `ssh` (prefixo S) lista os hosts do `hosts.sh`:
-// cada host é uma tab com o nome dele no space "ssh", reaproveitada se já existe.
+// Sessionizer: same as the tmux one (Tab prefix). Open spaces first (*), then
+// the folders from `folders.sh` that have no open space. Type to filter,
+// ↑/↓ (or ctrl-n/p, ctrl-j/k) and Enter to go, ctrl-x closes a space, Esc leaves.
+// With the `ssh` prop (S prefix) it lists the hosts from `hosts.sh`:
+// each host is a tab named after it in the "ssh" space, reused if it already exists.
 
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
@@ -63,7 +63,7 @@ export class Sessionizer {
     this.scroll = 0;
     this.dirs = [];
     this.hosts = [];
-    this.input = InputState.new({ placeholder: this.ssh ? "Host…" : "Space ou pasta…" });
+    this.input = InputState.new({ placeholder: this.ssh ? "Host…" : "Space or folder…" });
     this.input.on("change", (_e, cx) => {
       this.filter = this.input.value();
       this.at = 0;
@@ -74,13 +74,13 @@ export class Sessionizer {
     cx.timer.after(600, () => this.input.focus());
     this.handle = cx.focus_handle();
     cx.spawn(async (cx) => {
-      const aviso = this.ssh ? "SSH sem hosts" : "Sessionizer sem pastas";
+      const warning = this.ssh ? "SSH has no hosts" : "Sessionizer has no folders";
       try {
         const r = this.ssh
           ? await exec(`${appHome()}/mods/setup/hosts.sh`, [])
-          : await exec(`${appHome()}/mods/setup/pastas.sh`, []);
+          : await exec(`${appHome()}/mods/setup/folders.sh`, []);
         if (r.code !== 0) {
-          notify({ title: aviso, body: r.stderr.trim().split("\n")[0] || `saiu com ${r.code}`, level: "warning" });
+          notify({ title: warning, body: r.stderr.trim().split("\n")[0] || `exited with ${r.code}`, level: "warning" });
         } else if (this.ssh) {
           this.hosts = r.stdout.trim().split("\n").filter(Boolean);
         } else {
@@ -90,7 +90,7 @@ export class Sessionizer {
           });
         }
       } catch (e) {
-        notify({ title: aviso, body: String(e?.message ?? e), level: "warning" });
+        notify({ title: warning, body: String(e?.message ?? e), level: "warning" });
       }
       cx.notify();
     });
@@ -127,10 +127,10 @@ export class Sessionizer {
     this.dismiss();
     if (r.kind === "space") run("space.select", { id: r.s.id });
     else if (r.kind === "dir") run("space.new", { folder: r.path, machine: "" });
-    else this.abrirHost(r);
+    else this.openHost(r);
   }
 
-  abrirHost(r) {
+  openHost(r) {
     const s = this.sshSpace();
     const argv = ["ssh", r.label];
     if (!s) return run("space.new", { name: "ssh", tab: r.label, folder: home(), machine: "", argv });
@@ -177,13 +177,13 @@ export class Sessionizer {
         return base
           .child(h_flex().size(18).flex_none().rounded(5).bg(spaceColor(t, r.s)).items_center().justify_center().text_size(10.5).font_bold().text_color("#ffffff").child([...r.s.name][0]?.toUpperCase() ?? "?"))
           .child(div().flex_1().truncate().text_color(t.foreground).when(r.s.active, (d) => d.font_semibold()).child(r.label))
-          .when(r.s.active, (el) => el.child(div().text_size(11).text_color(t.dim).child("atual")));
+          .when(r.s.active, (el) => el.child(div().text_size(11).text_color(t.dim).child("current")));
       }
       if (r.kind === "host") {
         return base
           .child(div().w(18).flex_none().text_color(r.tab ? t.foreground : t.muted).child(r.tab ? "*" : "+"))
           .child(div().flex_1().truncate().text_color(t.foreground).child(r.label))
-          .when(Boolean(r.tab), (el) => el.child(div().text_size(11).text_color(t.dim).child("aberto")));
+          .when(Boolean(r.tab), (el) => el.child(div().text_size(11).text_color(t.dim).child("open")));
       }
       const shown = r.path.startsWith(home_ + "/") ? `~${r.path.slice(home_.length)}` : r.path;
       return base

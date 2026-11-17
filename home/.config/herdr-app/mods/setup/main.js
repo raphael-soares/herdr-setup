@@ -6,19 +6,19 @@ import { Lists } from "./sidebar/views/lists.js";
 import { Agents } from "./sidebar/views/agents.js";
 import { Footer } from "./sidebar/views/footer.js";
 import { PanelToggle } from "./sidebar/views/panel-toggle.js";
-import { Titulo } from "./titulo.js";
-import { Uso } from "./uso.js";
-import { Fluxo } from "./fluxo.js";
-import { Agenda } from "./agenda.js";
+import { Title } from "./title.js";
+import { Usage } from "./usage.js";
+import { Flow } from "./flow.js";
+import { Automations } from "./automations.js";
 import { Sessionizer } from "./sessionizer.js";
-import { Confirma } from "./confirma.js";
+import { Confirm } from "./confirm.js";
 
 // One mod for every piece that isn't Herdr's: a mod can't import outside its own
 // folder, so this is how the pieces share code. `view` in props picks the piece.
 const PARTS = {
   spaces: Spaces, lists: Lists, agents: Agents, footer: Footer, "panel-toggle": PanelToggle,
-  titulo: Titulo, uso: Uso, fluxo: Fluxo, agenda: Agenda, sessionizer: Sessionizer,
-  confirma: Confirma,
+  title: Title, usage: Usage, flow: Flow, automations: Automations, sessionizer: Sessionizer,
+  confirm: Confirm,
 };
 
 export default class Setup extends View {

@@ -16,7 +16,7 @@
           "content": {
             "mod": "setup",
             "props": {
-              "view": "titulo"
+              "view": "title"
             }
           },
           "size": {
@@ -58,12 +58,12 @@
           ]
         },
         {
-          "id": "uso",
+          "id": "usage",
           "type": "block",
           "content": {
             "mod": "setup",
             "props": {
-              "view": "uso"
+              "view": "usage"
             }
           },
           "size": {
@@ -91,7 +91,8 @@
       "min": 44,
       "max": 480,
       "background": "chrome",
-      "resizable": false
+      "resizable": false,
+      "hidden": true
     },
     {
       "id": "work",
@@ -112,6 +113,27 @@
           "id": "work-body",
           "type": "row",
           "children": [
+            {
+              "id": "main",
+              "type": "block",
+              "content": {
+                "tab": "active",
+                "pane": {
+                  "background": "background",
+                  "border": {
+                    "width": 1,
+                    "color": "border"
+                  },
+                  "focus": {
+                    "width": 1,
+                    "color": "dim"
+                  },
+                  "radius": 6,
+                  "gap": 8,
+                  "lone": false
+                }
+              }
+            },
             {
               "id": "panel",
               "type": "column",
@@ -144,27 +166,6 @@
               "min": 280,
               "max": 900,
               "hidden": true
-            },
-            {
-              "id": "main",
-              "type": "block",
-              "content": {
-                "tab": "active",
-                "pane": {
-                  "background": "background",
-                  "border": {
-                    "width": 1,
-                    "color": "border"
-                  },
-                  "focus": {
-                    "width": 1,
-                    "color": "dim"
-                  },
-                  "radius": 6,
-                  "gap": 8,
-                  "lone": true
-                }
-              }
             }
           ],
           "padding": 8,
@@ -187,23 +188,20 @@
   ],
   "floating": [
     {
-      "id": "fluxo",
+      "id": "flow",
       "content": {
         "mod": "setup",
         "props": {
-          "view": "fluxo"
+          "view": "flow"
         }
       },
       "edge": "bottom",
       "align": "end"
     }
   ],
-  "background": "chrome",
+  "background": "background",
   "terminal_opacity": 0,
-  "terminal_padding": [
-    14,
-    12
-  ],
+  "terminal_padding": [14, 12],
   "titlebar": "none",
   "traffic_lights": [
     12,

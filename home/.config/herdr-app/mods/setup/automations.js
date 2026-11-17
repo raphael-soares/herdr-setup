@@ -1,4 +1,4 @@
-// Agenda: scheduled agent prompts (herdr-automations) as a modal.
+// Automations: scheduled agent prompts (herdr-automations) as a modal.
 // Everything goes through the herdr-automations CLI JSON (internal/api/api.go
 // upstream is the contract); the yaml and history files are only watched.
 
@@ -89,7 +89,7 @@ function describe(a) {
   return [n === Infinity ? "--:--" : hm(new Date(n).getHours(), new Date(n).getMinutes()), "custom"];
 }
 
-export class Agenda {
+export class Automations {
   init(_props, cx) {
     this.list = null;
     this.runs = [];
@@ -139,7 +139,7 @@ export class Agenda {
   }
 
   // "Disappears once seen": finished runs land in this.fresh and are marked
-  // seen right away, which also clears the dot on the titulo robot.
+  // seen right away, which also clears the dot on the title robot.
   collect(cx) {
     const add = this.runs.filter((r) => FINISHED.has(r.status) && !r.seen && !this.added.has(r.run_id));
     if (!add.length) return;
@@ -338,7 +338,7 @@ export class Agenda {
     let body;
     if (this.missing) body = div().py(8).text_size(12.8).text_color(t.muted).child("herdr-automations is not installed. Run ~/.dotfiles/install.sh terminal.");
     else body = editing ? this.renderEditor(t) : this.renderList(t);
-    return v_flex().id("agenda").size_full().min_h(0).rounded(12).overflow_hidden().bg(t.popover)
+    return v_flex().id("automations").size_full().min_h(0).rounded(12).overflow_hidden().bg(t.popover)
       .border_1().border_color(t.border).text_color(t.foreground).text_size(13)
       .track_focus(this.handle).on_key_down((e, cx) => this.key(e, cx))
       .child(editing ? this.editorHeader(t) : this.header(t))
@@ -347,7 +347,7 @@ export class Agenda {
         h_flex().mx(18).mb(8).p(10).gap(8).items_center().rounded(10).bg(t.blocked + "14").border_1().border_color(t.blocked + "40")
           .child(div().flex_1().text_size(12.8).child("Scheduler isn't running."))
           .child(this.button("start", "Start", t, (cx) => this.act(cx, ["service", "install"])))))
-      .child(div().id("agenda-body").flex_1().min_h(0).overflow_y_scrollbar().child(body))
+      .child(div().id("automations-body").flex_1().min_h(0).overflow_y_scrollbar().child(body))
       .when(editing, (el) => el.child(this.editorFooter(t)));
   }
 

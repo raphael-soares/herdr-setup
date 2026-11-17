@@ -1,11 +1,17 @@
 import { openOverlay, closeOverlay, shared, setShared } from "herdr";
 
 const SPECS = {
-  agenda: { kind: "dialog", frame: "none", width: 640, height: 0.8 },
+  automations: { kind: "dialog", frame: "none", width: 640, height: 0.8 },
   sessionizer: { kind: "popup", at: "top", offset: 40, width: 640, height: 0.8 },
-  confirma: { kind: "dialog", width: 380, height: 150 },
+  confirm: { kind: "dialog", width: 380, height: 150 },
 };
 const key = (view) => `setup.overlay.${view}`;
+
+// Overlay ids restart at o1 on every app start while shared state persists, so ids
+// saved in a previous run are cleared by the always-on flow part when it starts.
+export function forgetAll() {
+  for (const view of Object.keys(SPECS)) setShared(key(view), null);
+}
 
 export function openPart(view, extra = {}) {
   const id = openOverlay({ mod: "setup", ...SPECS[view], props: { ...extra, view } });

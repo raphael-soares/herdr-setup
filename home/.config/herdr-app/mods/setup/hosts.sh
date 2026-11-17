@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Aliases do ~/.ssh/config, um por linha, para o sessionizer (modo ssh).
+# Aliases from ~/.ssh/config, one per line, for the sessionizer (ssh mode).
 
 SSH_CONFIG="${HOME}/.ssh/config"
 
@@ -14,7 +14,7 @@ parse_hosts() {
                 [[ -f "$f" ]] && parse_hosts "$f"
             done
         else
-            # 'Host foo bar' declara varios aliases; read -ra para 'Host *' nao virar glob.
+            # 'Host foo bar' declares several aliases; read -ra so 'Host *' does not glob.
             local -a aliases
             read -ra aliases <<< "$value"
             for alias in "${aliases[@]}"; do
@@ -24,6 +24,6 @@ parse_hosts() {
     done
 }
 
-# sort -u: o mesmo alias pode aparecer em mais de um arquivo via Include.
+# sort -u: the same alias can show up in more than one file via Include.
 hosts=$(parse_hosts "$SSH_CONFIG" | grep -v '[*?!]' | sort -u)
 echo "$hosts"

@@ -5,7 +5,7 @@ import { toggle } from "./overlays.js";
 
 const FINISHED = ["done", "failed", "cancelled", "missed"];
 
-export class Titulo {
+export class Title {
   init(_props, cx) {
     this.pending = [];
     this.alert = false;
@@ -36,17 +36,17 @@ export class Titulo {
 
   render() {
     const t = theme();
-    const nome = spaces().find((s) => s.active)?.name ?? "";
-    // O bloco arrasta a janela: sem o stop no mouse_down o clique vira arrasto.
-    const automacoes = div().id("automacoes").relative().size(26).flex_none().flex().items_center().justify_center().rounded(6)
+    const name = spaces().find((s) => s.active)?.name ?? "";
+    // The block drags the window: without the stop on mouse_down a click becomes a drag.
+    const automations = div().id("automations").relative().size(26).flex_none().flex().items_center().justify_center().rounded(6)
       .text_color(t.dim).hover((s) => s.bg(t.hover).text_color(t.foreground))
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
-      .on_click(() => toggle("agenda"))
+      .on_click(() => toggle("automations"))
       .child(svg("mods/setup/icons/robo.svg").size(16))
       .when(this.pending.length > 0, (el) => el.child(
         div().absolute().top(4).right(4).size(7).rounded(4).bg(this.alert ? t.ansi1 : t.accent)));
     return h_flex().size_full().bg(t.chrome).pl(14).pr(10).gap(6).items_center().text_size(13.5)
-      .child(div().flex_1().min_w(0).font_semibold().truncate().text_color(t.foreground).child(nome))
-      .child(automacoes);
+      .child(div().flex_1().min_w(0).font_semibold().truncate().text_color(t.foreground).child(name))
+      .child(automations);
   }
 }
