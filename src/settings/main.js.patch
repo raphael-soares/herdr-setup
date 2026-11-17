@@ -1,0 +1,52 @@
+--- a/main.js
++++ b/main.js
+@@ -1,10 +1,13 @@
+ // App-owned settings mod. Writes changes immediately; no Save step.
++// Copied from Herdr's frame/settings (Apache-2.0, see LICENSE). Our changes are
++// src/settings/main.js.patch; src/settings/sync.sh redoes the copy on a new Herdr.
+ 
+ import { View, div, svg, image } from "gpui-kit";
+ import { v_flex, h_flex, Scrollbar, InputState, Input, Popup } from "gpui-base";
+ import { hc, run, theme, themes, fonts, updates, telemetry, settings, layouts, shared, appHome, readTextFile, writeTextFile, playSound, props, closeOverlay, notify, window } from "herdr";
+ 
+-const I = (name) => `frame/settings/${name}.svg`;
++import { EXTRA_SECTIONS, Extra } from "./extra.js";
++const I = (name) => `mods/settings/${name}.svg`;
+ 
+ const SECTIONS = [
+   { id: "look", title: "Look", icon: "palette" },
+@@ -13,6 +16,7 @@
+   { id: "alerts", title: "Alerts", icon: "bell" },
+   { id: "updates", title: "Updates", icon: "refresh" },
+   { id: "privacy", title: "Privacy", icon: "shield" },
++  ...EXTRA_SECTIONS,
+ ];
+ 
+ const LOOKS = { main: "Herdr", terminals: "Terminals", win98: "Herdr 98" };
+@@ -76,6 +80,7 @@
+         cx.notify();
+       });
+     });
++    this.extra = new Extra(this, cx);
+   }
+ 
+   file() {
+@@ -935,6 +940,7 @@
+       .min_h(0)
+       .items_start()
+       .on_key_down((e, cx) => {
++        if (this.extra.onKey(e, cx)) return;
+         const k = e.key;
+         if (this.machineEdit) {
+           if (k === "escape") this.machineEdit = null;
+@@ -983,7 +989,9 @@
+                         ? this.alerts(t)
+                         : this.section === "privacy"
+                           ? this.privacy(t)
+-                          : this.updates(t),
++                          : this.extra.has(this.section)
++                            ? this.extra.render(this.section, t, cx)
++                            : this.updates(t),
+                   ),
+               ),
+           )

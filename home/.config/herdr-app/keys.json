@@ -27,7 +27,7 @@
     "ctrl-space w": "mod.open:picker",
     "ctrl-space e": "setup.sidebar",
     "ctrl-space ctrl-a": "agent.next",
-    "ctrl-space ,": "app.settings",
+    "ctrl-space ,": "mod.open:settings",
     "ctrl-space tab": "mod.open:sessionizer",
     "ctrl-space shift-s": "setup.ssh",
     "ctrl-space o": "setup.back",

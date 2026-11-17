@@ -29,13 +29,13 @@
           "type": "array",
           "items": {
             "oneOf": [
-              { "type": "string" },
+              { "type": "string", "format": "folder" },
               {
                 "type": "object",
                 "additionalProperties": false,
                 "required": ["path"],
                 "properties": {
-                  "path": { "type": "string" },
+                  "path": { "type": "string", "format": "folder" },
                   "depth": { "type": "integer", "minimum": 1 },
                   "optional": { "type": "boolean" }
                 }
