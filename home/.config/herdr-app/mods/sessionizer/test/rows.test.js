@@ -67,3 +67,10 @@ test("pinned and root labels filter like any row", () => {
   assert.deepEqual(rows.filter((r) => matches("dft", r.label)).map((r) => r.kind), ["pinned"]);
   assert.deepEqual(rows.filter((r) => matches("app", r.label)).map((r) => r.kind), ["root"]);
 });
+
+test("a pinned folder written with a trailing slash still has a name and finds its space", () => {
+  const open = space("s1", "Code", { named: false });
+  const rows = buildRows({ pinned: [{ path: "/h/Code/", name: null }], root: null, spaces: [open], places: { s1: "/h/Code" }, showSpaces: true, hideOpenFolders: true, folders: [] });
+  assert.equal(rows[0].label, "Code");
+  assert.equal(rows[0].s, open);
+});
