@@ -23,6 +23,26 @@
       "description": "Your changes. A setting left out uses its default.",
       "additionalProperties": false,
       "properties": {
+        "pinned": {
+          "title": "Pinned",
+          "description": "Spaces always at the top of the list, opened or reused by name. A folder, or { path, name }; without a name the space is named like any folder.",
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string", "format": "folder" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["path"],
+                "properties": {
+                  "path": { "type": "string", "format": "folder" },
+                  "name": { "type": "string" }
+                }
+              }
+            ]
+          },
+          "default": [{ "path": "~", "name": "default" }]
+        },
         "roots": {
           "title": "Roots",
           "description": "Folders whose subfolders are listed. A string, or { path, depth, optional } where optional skips a missing folder without a warning. Empty: the home folder.",
