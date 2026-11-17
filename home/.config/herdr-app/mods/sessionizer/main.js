@@ -1,13 +1,33 @@
-// Sessionizer: same as the tmux one (Tab prefix). Open spaces first (*), then
-// the folders from `folders.sh` that have no open space. Type to filter,
-// ↑/↓ (or ctrl-n/p, ctrl-j/k) and Enter to go, ctrl-x closes a space, Esc leaves.
-// With the `ssh` prop (S prefix) it lists the hosts from `hosts.sh`:
-// each host is a tab named after it in the "ssh" space, reused if it already exists.
+// Sessionizer, like tmux-sessionizer: open spaces first (*), then the folders under
+// the configured roots that no open space is in. Type to filter, Enter goes.
+// With props { source: "ssh" } it lists ssh hosts instead: each host is a tab
+// named after it in one space, reused if it is already open.
+// Settings live under `settings` in mod.json; mod.schema.json describes them.
 
-import { div, svg } from "gpui-kit";
+import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { spaces, panes, run, exec, home, appHome, notify, theme, settings, props, closeOverlay, shared, setShared } from "herdr";
+import { spaces, panes, run, home, notify, theme, settings as appSettings, props, closeOverlay, shared, setShared, checking } from "herdr";
+import { loadSettings } from "./settings.js";
+import { readRoots, scanFolders, readHosts } from "./sources.js";
 
+const DEFAULTS = {
+  roots: [],
+  depth: 1,
+  hidden: false,
+  open_spaces: true,
+  hide_open_folders: true,
+  ssh_space: "ssh",
+  ssh_config: "~/.ssh/config",
+  keys: {
+    down: ["down", "ctrl-n", "ctrl-j"],
+    up: ["up", "ctrl-p", "ctrl-k"],
+    close_space: ["ctrl-x"],
+    clear: ["ctrl-u"],
+  },
+};
+
+const ROW = 32;
+const MAX_LIST = 320;
 const MARK = { ansi6: "#22a99a", ansi3: "#e3814f", ansi4: "#5b8def", ansi5: "#8b7cf6", ansi2: "#3fae6a", ansi1: "#d9649a" };
 
 // Space colors, kept by space id in shared "space.colors": a theme
@@ -35,8 +55,7 @@ function spaceColor(t, p) {
 }
 
 // Where a space is now: its first terminal's live folder, else where it was made.
-function place(s, all = panes()) {
-  if (!s) return null;
+function place(s, all) {
   const tabs = new Set((s.tabs ?? []).map((c) => c.id));
   return all.find((p) => tabs.has(p.tab) && p.cwd)?.cwd || s.folder || null;
 }
@@ -53,15 +72,23 @@ function matches(query, text) {
   return true;
 }
 
+// "ctrl-n", "down", "alt-shift-k": modifiers joined to the key by "-".
+function chord(e) {
+  const m = e.modifiers;
+  return [m.control && "ctrl", m.alt && "alt", m.shift && "shift", m.platform && "cmd", e.key].filter(Boolean).join("-");
+}
+
 const spaceLabel = (s) => `* ${s.name}${s.machine ? `  (${s.machine})` : ""}`;
 
-export class Sessionizer {
+export default class Sessionizer extends View {
   init(_props, cx) {
-    this.ssh = Boolean(props()?.ssh);
+    this.ssh = props()?.source === "ssh";
+    this.config = DEFAULTS;
+    this.loading = true;
     this.filter = "";
     this.at = 0;
     this.scroll = 0;
-    this.dirs = [];
+    this.folders = [];
     this.hosts = [];
     this.input = InputState.new({ placeholder: this.ssh ? "Host…" : "Space or folder…" });
     this.input.on("change", (_e, cx) => {
@@ -73,25 +100,21 @@ export class Sessionizer {
     this.input.focus();
     cx.timer.after(600, () => this.input.focus());
     this.handle = cx.focus_handle();
+    if (checking()) return;
     cx.spawn(async (cx) => {
-      const warning = this.ssh ? "SSH has no hosts" : "Sessionizer has no folders";
-      try {
-        const r = this.ssh
-          ? await exec(`${appHome()}/mods/setup/hosts.sh`, [])
-          : await exec(`${appHome()}/mods/setup/folders.sh`, []);
-        if (r.code !== 0) {
-          notify({ title: warning, body: r.stderr.trim().split("\n")[0] || `exited with ${r.code}`, level: "warning" });
-        } else if (this.ssh) {
-          this.hosts = r.stdout.trim().split("\n").filter(Boolean);
-        } else {
-          this.dirs = r.stdout.trim().split("\n").filter(Boolean).map((l) => {
-            const [label, path] = l.split("\t");
-            return { label, path };
-          });
-        }
-      } catch (e) {
-        notify({ title: warning, body: String(e?.message ?? e), level: "warning" });
+      const { settings, problems } = await loadSettings("sessionizer", DEFAULTS);
+      this.config = settings;
+      if (this.ssh) {
+        const r = await readHosts(settings);
+        this.hosts = r.hosts;
+        problems.push(...r.problems);
+      } else {
+        const r = await scanFolders(readRoots(settings, problems), settings);
+        this.folders = r.folders;
+        problems.push(...r.problems);
       }
+      this.loading = false;
+      if (problems.length) notify({ title: "Sessionizer", body: problems.join("\n"), level: "warning" });
       cx.notify();
     });
   }
@@ -101,63 +124,79 @@ export class Sessionizer {
   }
 
   sshSpace() {
-    return spaces().find((s) => s.named && s.name === "ssh" && s.machine === null);
+    return spaces().find((s) => s.named && s.name === this.config.ssh_space && s.machine === null);
   }
 
   rows() {
-    const f = this.filter;
     let out;
     if (this.ssh) {
       const tabs = this.sshSpace()?.tabs ?? [];
       out = this.hosts.map((h) => ({ kind: "host", label: h, tab: tabs.find((c) => c.named && c.name === h) }));
     } else {
-      const all = spaces();
+      const all = this.config.open_spaces ? spaces() : [];
       const live = panes();
-      const open = all.filter((s) => s.machine === null).map((s) => place(s, live)).filter(Boolean);
+      const open = this.config.hide_open_folders ? spaces().filter((s) => s.machine === null).map((s) => place(s, live)).filter(Boolean) : [];
       out = all.map((s) => ({ kind: "space", s, label: spaceLabel(s) }));
-      for (const d of this.dirs) {
-        if (!open.some((p) => p === d.path || p.startsWith(d.path + "/"))) out.push({ kind: "dir", ...d });
+      for (const d of this.folders) {
+        if (!open.some((p) => p === d.path || p.startsWith(d.path + "/"))) out.push({ kind: "folder", ...d });
       }
     }
-    return f ? out.filter((r) => matches(f, r.label)) : out;
+    return this.filter ? out.filter((r) => matches(this.filter, r.label)) : out;
   }
 
   go(r) {
     if (!r) return;
     this.dismiss();
     if (r.kind === "space") run("space.select", { id: r.s.id });
-    else if (r.kind === "dir") run("space.new", { folder: r.path, machine: "" });
+    else if (r.kind === "folder") run("space.new", { folder: r.path, machine: "" });
     else this.openHost(r);
   }
 
   openHost(r) {
     const s = this.sshSpace();
     const argv = ["ssh", r.label];
-    if (!s) return run("space.new", { name: "ssh", tab: r.label, folder: home(), machine: "", argv });
+    if (!s) return run("space.new", { name: this.config.ssh_space, tab: r.label, folder: home(), machine: "", argv });
     run("space.select", { id: s.id });
     if (r.tab) run("tab.select", { id: r.tab.id });
     else run("tab.new", { name: r.label, space: s.id, folder: home(), argv });
+  }
+
+  onKey(e, rows, cx) {
+    const k = chord(e);
+    const is = (action) => this.config.keys[action]?.includes(k);
+    const n = rows.length;
+    const sel = rows[this.at];
+    if (e.key === "escape") return this.dismiss();
+    if (n && is("down")) this.at = (this.at + 1) % n;
+    else if (n && is("up")) this.at = (this.at + n - 1) % n;
+    else if (is("close_space")) {
+      if (sel?.kind === "space" && !sel.s.active) run("space.close", { id: sel.s.id, confirmed: true });
+    } else if (is("clear")) {
+      this.input.set_value("");
+      this.filter = "";
+      this.at = 0;
+    } else return;
+    cx.stop_propagation();
+    cx.notify();
   }
 
   render() {
     const t = theme();
     const rows = this.rows();
     this.at = Math.max(0, Math.min(this.at, rows.length - 1));
-    const sel = rows[this.at];
     // One continuous strip: each row at a fixed y. Scrolling moves the strip only
     // as far as it takes to keep the selected row in view.
-    const H = 32;
-    const total = rows.length * H;
-    const height = Math.min(320, this.listHeight ?? 320);
+    const total = rows.length * ROW;
+    const height = Math.min(MAX_LIST, this.listHeight ?? MAX_LIST);
     const fixed = total > height;
     const maxScroll = Math.max(0, total - height);
     this.scroll = Math.max(0, Math.min(this.scroll, maxScroll));
-    if (sel) {
-      if (this.at * H < this.scroll) this.scroll = this.at * H;
-      if ((this.at + 1) * H > this.scroll + height) this.scroll = (this.at + 1) * H - height;
+    if (rows.length) {
+      if (this.at * ROW < this.scroll) this.scroll = this.at * ROW;
+      if ((this.at + 1) * ROW > this.scroll + height) this.scroll = (this.at + 1) * ROW - height;
     }
-    const position = (el, i) => (fixed ? el.absolute().left(0).right(0).top(i * H - this.scroll).h(H) : el);
-    const visible = (i) => !fixed || ((i + 1) * H > this.scroll && i * H < this.scroll + height);
+    const position = (el, i) => (fixed ? el.absolute().left(0).right(0).top(i * ROW - this.scroll).h(ROW) : el);
+    const visible = (i) => !fixed || ((i + 1) * ROW > this.scroll && i * ROW < this.scroll + height);
     const home_ = home();
 
     const row = (r, i) => {
@@ -165,7 +204,7 @@ export class Sessionizer {
         .id(r.kind === "space" ? `sz-${r.s.id}` : `sz-${r.kind}-${r.path ?? r.label}`)
         .mx(4)
         .px(10)
-        .h(H)
+        .h(ROW)
         .rounded(7)
         .gap(10)
         .items_center()
@@ -192,6 +231,8 @@ export class Sessionizer {
         .child(div().flex_1().min_w(0).truncate().text_right().text_size(11).text_color(t.dim).child(shown));
     };
 
+    const empty = this.loading ? "Looking…" : this.filter ? "Nothing matches" : this.ssh ? "No ssh hosts" : "No spaces or folders";
+
     return v_flex()
       .id("sessionizer")
       .track_focus(this.handle)
@@ -201,44 +242,40 @@ export class Sessionizer {
       .gap(10)
       .bg(t.popover)
       .text_size(13)
-      .on_key_down((e, cx) => {
-        const k = e.key;
-        const ctrl = e.modifiers.control;
-        const n = rows.length;
-        if (k === "escape") return this.dismiss();
-        if (n && (k === "down" || (ctrl && (k === "n" || k === "j")))) this.at = (this.at + 1) % n;
-        else if (n && (k === "up" || (ctrl && (k === "p" || k === "k")))) this.at = (this.at + n - 1) % n;
-        else if (ctrl && k === "x") {
-          if (sel?.kind === "space" && !sel.s.active) run("space.close", { id: sel.s.id, confirmed: true });
-        } else return;
-        cx.stop_propagation();
-        cx.notify();
-      })
-      .child(h_flex().items_center().child(div().flex_1().text_size(15).font_semibold().text_color(t.foreground).child(this.ssh ? "SSH" : "Sessionizer")).child(div().id("sz-esc").px(6).py(2).rounded(5).text_size(11).text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground)).on_click(() => this.dismiss()).child("Esc")))
+      .on_key_down((e, cx) => this.onKey(e, rows, cx))
       .child(
-        h_flex().h(36).flex_none().px(10).gap(8).items_center().rounded(9).border_1().border_color(t.accent).bg(t.background)
-          .child(svg("mods/setup/icons/search.svg").size(15).text_color(t.dim))
-          .child(Input.new(this.input).flex_1().h_full().text_size(12.8).text_color(t.foreground)),
+        h_flex()
+          .items_center()
+          .child(div().flex_1().text_size(15).font_semibold().text_color(t.foreground).child(this.ssh ? "SSH" : "Sessionizer"))
+          .child(div().id("sz-esc").px(6).py(2).rounded(5).text_size(11).text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground)).on_click(() => this.dismiss()).child("Esc")),
       )
       .child(
-        v_flex()
-          .id("sz-list")
-          .on_size_change((size, cx) => {
-            this.listHeight = size.height / settings().zoom;
-            cx.notify();
-          })
-          .h(Math.min(320, total))
-          .min_h(0)
-          .mb(6)
-          .when(fixed, (el) =>
-            el.overflow_hidden().on_scroll_wheel((e, cx) => {
-              this.scroll = Math.max(0, Math.min(this.scroll - e.delta.y, maxScroll));
-              // The selection follows the wheel, so the next frame doesn't scroll back to it.
-              while (this.at < rows.length - 1 && this.at * H < this.scroll) this.at++;
-              while (this.at > 0 && (this.at + 1) * H > this.scroll + height) this.at--;
+        h_flex().h(36).flex_none().px(10).gap(8).items_center().rounded(9).border_1().border_color(t.accent).bg(t.background)
+          .child(svg("mods/sessionizer/icons/search.svg").size(15).text_color(t.dim))
+          .child(Input.new(this.input).flex_1().h_full().text_size(12.8).text_color(t.foreground)),
+      )
+      .when(!rows.length, (el) => el.child(div().px(14).h(ROW).flex().items_center().mb(6).text_color(t.dim).child(empty)))
+      .when(rows.length > 0, (el) =>
+        el.child(
+          v_flex()
+            .id("sz-list")
+            .on_size_change((size, cx) => {
+              this.listHeight = size.height / appSettings().zoom;
               cx.notify();
-            }))
-          .children(rows.map((r, i) => (visible(i) ? position(row(r, i), i) : null)).filter(Boolean)),
+            })
+            .h(Math.min(MAX_LIST, total))
+            .min_h(0)
+            .mb(6)
+            .when(fixed, (el) =>
+              el.overflow_hidden().on_scroll_wheel((e, cx) => {
+                this.scroll = Math.max(0, Math.min(this.scroll - e.delta.y, maxScroll));
+                // The selection follows the wheel, so the next frame doesn't scroll back to it.
+                while (this.at < rows.length - 1 && this.at * ROW < this.scroll) this.at++;
+                while (this.at > 0 && (this.at + 1) * ROW > this.scroll + height) this.at--;
+                cx.notify();
+              }))
+            .children(rows.map((r, i) => (visible(i) ? position(row(r, i), i) : null)).filter(Boolean)),
+        ),
       );
   }
 }

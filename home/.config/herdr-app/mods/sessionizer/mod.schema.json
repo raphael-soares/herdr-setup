@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Sessionizer mod.json",
+  "description": "What Herdr reads from the Sessionizer's mod.json, and the settings it takes. Saving the file reloads the mod.",
+  "type": "object",
+  "properties": {
+    "$schema": { "type": "string" },
+    "place": { "enum": ["left", "right", "top", "bottom", "none"] },
+    "title": { "type": "string" },
+    "overlay": {
+      "type": "object",
+      "description": "How mod.open shows it.",
+      "properties": {
+        "kind": { "enum": ["dialog", "popup", "window"] },
+        "at": {},
+        "offset": { "type": "number" },
+        "width": { "type": "number", "minimum": 0 },
+        "height": { "type": "number", "minimum": 0 }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "description": "Your changes. A setting left out uses its default.",
+      "additionalProperties": false,
+      "properties": {
+        "roots": {
+          "title": "Roots",
+          "description": "Folders whose subfolders are listed. A string, or { path, depth, optional } where optional skips a missing folder without a warning. Empty: the home folder.",
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["path"],
+                "properties": {
+                  "path": { "type": "string" },
+                  "depth": { "type": "integer", "minimum": 1 },
+                  "optional": { "type": "boolean" }
+                }
+              }
+            ]
+          },
+          "default": []
+        },
+        "depth": {
+          "title": "Depth",
+          "description": "How many levels below each root are listed, for roots that don't set their own.",
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "hidden": {
+          "title": "Hidden folders",
+          "description": "List folders whose name starts with a dot. node_modules is never listed.",
+          "type": "boolean",
+          "default": false
+        },
+        "open_spaces": {
+          "title": "Open spaces",
+          "description": "List the open spaces above the folders.",
+          "type": "boolean",
+          "default": true
+        },
+        "hide_open_folders": {
+          "title": "Hide open folders",
+          "description": "Leave out a folder an open space is already in.",
+          "type": "boolean",
+          "default": true
+        },
+        "ssh_space": {
+          "title": "SSH space",
+          "description": "Name of the space that holds one tab per ssh host.",
+          "type": "string",
+          "default": "ssh"
+        },
+        "ssh_config": {
+          "title": "SSH config",
+          "description": "The ssh config whose Host aliases are listed, Include files too.",
+          "type": "string",
+          "default": "~/.ssh/config"
+        },
+        "keys": {
+          "title": "Keys",
+          "description": "Keys for each action, written like \"ctrl-n\" or \"down\". Esc closes and Enter opens.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "down": { "type": "array", "items": { "type": "string" }, "default": ["down", "ctrl-n", "ctrl-j"] },
+            "up": { "type": "array", "items": { "type": "string" }, "default": ["up", "ctrl-p", "ctrl-k"] },
+            "close_space": { "type": "array", "items": { "type": "string" }, "default": ["ctrl-x"] },
+            "clear": { "type": "array", "items": { "type": "string" }, "default": ["ctrl-u"] }
+          }
+        }
+      }
+    }
+  }
+}

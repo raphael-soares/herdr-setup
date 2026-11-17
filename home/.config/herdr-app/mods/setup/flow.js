@@ -13,8 +13,8 @@ export class Flow {
         const c = await nextCommand();
         if (c === "back") this.back();
         else if (c === "new") openOverlay({ mod: "new-menu", kind: "dialog", width: 250 });
-        else if (c === "ssh") openPart("sessionizer", { ssh: true });
-        else if (c === "automations" || c === "sessionizer") toggle(c);
+        else if (c === "ssh") openOverlay({ mod: "sessionizer", kind: "popup", at: "top", offset: 40, width: 640, height: 0.8, props: { source: "ssh" } });
+        else if (c === "automations") toggle(c);
         else if (c.startsWith("worktree-")) this.worktree(c.slice("worktree-".length));
         else if (c === "sidebar") this.sidebar();
         else if (c.startsWith("close-")) this.closeFocused(c.slice("close-".length));

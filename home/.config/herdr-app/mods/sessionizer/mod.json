@@ -1,0 +1,9 @@
+{
+  "$schema": "./mod.schema.json",
+  "place": "none",
+  "title": "Sessionizer",
+  "overlay": { "kind": "popup", "at": "top", "offset": 40, "width": 640, "height": 0.8 },
+  "settings": {
+    "roots": ["~/Code/Unimed", "~/Code/Udesc", "~/Code/Personal", "~/Code"]
+  }
+}

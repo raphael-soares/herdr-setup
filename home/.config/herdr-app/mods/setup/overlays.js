@@ -2,7 +2,6 @@ import { openOverlay, closeOverlay, shared, setShared } from "herdr";
 
 const SPECS = {
   automations: { kind: "dialog", frame: "none", width: 640, height: 0.8 },
-  sessionizer: { kind: "popup", at: "top", offset: 40, width: 640, height: 0.8 },
   confirm: { kind: "dialog", width: 380, height: 150 },
 };
 const key = (view) => `setup.overlay.${view}`;

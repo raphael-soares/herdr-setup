@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
-# Aliases from ~/.ssh/config, one per line, for the sessionizer (ssh mode).
+# Host aliases from an ssh config (default ~/.ssh/config) and the files it includes,
+# one per line, for the sessionizer's ssh mode.
 
-SSH_CONFIG="${HOME}/.ssh/config"
+SSH_CONFIG="${1:-$HOME/.ssh/config}"
 
 [[ -f "$SSH_CONFIG" ]] || { echo "No SSH config found at $SSH_CONFIG" >&2; exit 1; }
 
 parse_hosts() {
     local config="$1"
-    grep -Ei '^(Host |Include )' "$config" | while read -r keyword value; do
+    grep -Ei '^[[:space:]]*(Host|Include)[[:space:]]' "$config" | while read -r keyword value; do
         if [[ "${keyword,,}" == "include" ]]; then
             local pattern="${value/#\~/$HOME}"
+            # ssh reads a relative Include from ~/.ssh.
+            [[ "$pattern" == /* ]] || pattern="$HOME/.ssh/$pattern"
             for f in $pattern; do
                 [[ -f "$f" ]] && parse_hosts "$f"
             done
