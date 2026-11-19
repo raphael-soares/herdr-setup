@@ -26,8 +26,8 @@ export function nameFor(path, git) {
 
 const spaceLabel = (s) => `* ${s.name}${s.machine ? `  (${s.machine})` : ""}`;
 
-// Rows in list order: pinned, repo root, open spaces, folders no open space is in.
-export function buildRows({ pinned, root, spaces, places, showSpaces, hideOpenFolders, folders }) {
+// Rows in list order: pinned, repo root, open spaces, other machines, folders no open space is in.
+export function buildRows({ pinned, root, spaces, places, showSpaces, hideOpenFolders, folders, machines = [] }) {
   const local = spaces.filter((s) => s.machine === null);
   const taken = new Set();
   const claim = (s) => (s && taken.add(s.id), s);
@@ -42,6 +42,7 @@ export function buildRows({ pinned, root, spaces, places, showSpaces, hideOpenFo
     out.push({ kind: "root", label: `${root.name ?? base(root.path)} (repo root)`, path: root.path, name: root.name, s });
   }
   if (showSpaces) for (const s of spaces) if (!taken.has(s.id)) out.push({ kind: "space", s, label: spaceLabel(s) });
+  for (const m of machines) out.push({ kind: "machine", label: m.name, state: m.state });
   const open = hideOpenFolders ? local.map((s) => places[s.id]).filter(Boolean) : [];
   for (const d of folders) {
     if (!open.some((p) => p === d.path || p.startsWith(d.path + "/"))) out.push({ kind: "folder", ...d });

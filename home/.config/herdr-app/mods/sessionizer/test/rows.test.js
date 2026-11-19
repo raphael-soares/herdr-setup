@@ -74,3 +74,18 @@ test("a pinned folder written with a trailing slash still has a name and finds i
   assert.equal(rows[0].label, "Code");
   assert.equal(rows[0].s, open);
 });
+
+test("other machines come after open spaces and filter by name", () => {
+  const rows = buildRows({
+    pinned: [],
+    root: null,
+    spaces: [space("s1", "notes")],
+    places: {},
+    showSpaces: true,
+    hideOpenFolders: true,
+    folders: [{ label: "syncfast", path: "/h/Code/syncfast" }],
+    machines: [{ name: "fedora", state: "connected" }, { name: "vps", state: "asleep" }],
+  });
+  assert.deepEqual(rows.map((r) => r.kind), ["space", "machine", "machine", "folder"]);
+  assert.deepEqual(rows.filter((r) => matches("fed", r.label)).map((r) => [r.label, r.state]), [["fedora", "connected"]]);
+});

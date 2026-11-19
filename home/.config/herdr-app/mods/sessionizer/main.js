@@ -7,7 +7,7 @@
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { spaces, panes, run, home, notify, theme, settings as appSettings, props, closeOverlay, shared, setShared, checking } from "herdr";
+import { spaces, panes, run, home, notify, theme, settings as appSettings, props, closeOverlay, shared, setShared, checking, hc } from "herdr";
 import { loadSettings } from "./settings.js";
 import { readRoots, scanFolders, readHosts, gitInfo, expand } from "./sources.js";
 import { nameFor, buildRows, matches } from "./rows.js";
@@ -80,6 +80,7 @@ export default class Sessionizer extends View {
     this.folders = [];
     this.root = null;
     this.hosts = [];
+    this.machines = [];
     this.input = InputState.new({ placeholder: this.ssh ? "Host…" : "Space or folder…" });
     this.input.on("change", (_e, cx) => {
       this.filter = this.input.value();
@@ -99,8 +100,9 @@ export default class Sessionizer extends View {
         this.hosts = r.hosts;
         problems.push(...r.problems);
       } else {
-        const r = await scanFolders(readRoots(settings, problems), settings);
+        const [r, machines] = await Promise.all([scanFolders(readRoots(settings, problems), settings), this.readMachines()]);
         this.folders = r.folders;
+        this.machines = machines;
         problems.push(...r.problems);
         this.root = await this.repoRoot();
       }
@@ -112,6 +114,16 @@ export default class Sessionizer extends View {
 
   dismiss() {
     closeOverlay(props().overlay);
+  }
+
+  // Other machines Herdr knows. A failure lists none rather than blocking the folders.
+  async readMachines() {
+    try {
+      const r = await hc(["machine", "ls", "--json"]);
+      return r.code === 0 ? (JSON.parse(r.stdout).machines ?? []).filter((m) => !m.temporary) : [];
+    } catch {
+      return [];
+    }
   }
 
   // The repo root of the shown space when its terminal is below it, else null.
@@ -150,6 +162,7 @@ export default class Sessionizer extends View {
         showSpaces: this.config.open_spaces,
         hideOpenFolders: this.config.hide_open_folders,
         folders: this.folders,
+        machines: this.machines,
       });
     }
     return this.filter ? out.filter((r) => matches(this.filter, r.label)) : out;
@@ -161,6 +174,11 @@ export default class Sessionizer extends View {
     if (r.kind === "host") {
       this.dismiss();
       return this.openHost(r);
+    }
+    if (r.kind === "machine") {
+      if (r.state !== "connected") return (this.going = false);
+      this.dismiss();
+      return run("space.new", { machine: r.label });
     }
     const name = r.s || r.name ? r.name : nameFor(r.path, await gitInfo(r.path));
     this.dismiss();
@@ -236,13 +254,20 @@ export default class Sessionizer extends View {
       }
       if (r.kind === "host") {
         return base
-          .child(div().w(18).flex_none().text_color(r.tab ? t.foreground : t.muted).child(r.tab ? "*" : "+"))
+          .child(div().w(18).flex_none())
           .child(div().flex_1().truncate().text_color(t.foreground).child(r.label))
           .when(Boolean(r.tab), (el) => el.child(div().text_size(11).text_color(t.dim).child("open")));
       }
+      if (r.kind === "machine") {
+        const up = r.state === "connected";
+        return base
+          .child(svg("mods/sessionizer/icons/server.svg").size(14).flex_none().text_color(t.muted))
+          .child(div().flex_1().truncate().text_color(up ? t.foreground : t.dim).child(r.label))
+          .when(!up, (el) => el.child(div().text_size(11).text_color(t.dim).child((r.state ?? "asleep").replace(/_/g, " "))));
+      }
       const shown = r.path === home_ ? "~" : r.path.startsWith(home_ + "/") ? `~${r.path.slice(home_.length)}` : r.path;
       return base
-        .child(div().w(18).flex_none().text_color(t.muted).child(r.kind === "root" ? "^" : "+"))
+        .child(div().w(18).flex_none().text_color(t.muted).when(r.kind === "root", (d) => d.child("^")))
         .child(div().flex_none().text_color(t.foreground).child(r.label))
         .child(div().flex_1().min_w(0).truncate().text_right().text_size(11).text_color(t.dim).child(shown));
     };
