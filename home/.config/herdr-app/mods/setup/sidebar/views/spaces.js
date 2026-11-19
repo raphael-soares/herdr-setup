@@ -340,46 +340,34 @@ export class Spaces {
     return out;
   }
 
-  // The rows, under a header per machine once one isn't this computer.
+  // Local rows first, then a header per other machine that has spaces. A machine
+  // with none stays out: the Sessionizer opens the first space there.
   grouped(t, collapsed) {
     const rows = this.ordered();
     // `under`, set by the lists view, adds rows beneath a space: its agents.
     const draw = (r) => (collapsed ? [this.compact(r, t)] : [this.row(r, t), ...(this.under?.(r) ?? [])]);
-    const remote = [
-      ...new Set([
-        ...rows.map((r) => r.w.machine).filter(Boolean),
-        ...this.machines.map((m) => m.name),
-      ]),
-    ].sort();
-    if (!remote.length) {
-      return this.machineLoading(null) && !rows.length
-        ? [this.loadingRow(null, t, collapsed)]
-        : rows.flatMap(draw);
-    }
-    return [null, ...remote].flatMap((m) => {
-      const head = this.machineHeader(m, t, collapsed);
-      if (this.folded.has(m)) return [head];
-      const mine = rows.filter((r) => (r.w.machine ?? null) === m);
-      if (mine.length) return [head, ...mine.flatMap(draw)];
-      const placeholder = this.machineLoading(m)
-        ? this.loadingRow(m, t, collapsed)
-        : this.newSpaceRow(m, t, collapsed);
-      return [head, placeholder];
-    });
-  }
-
-  machineLoading(m) {
-    const layout = machines().find((k) => k.name === m)?.layout;
-    return (
-      layout === "loading" ||
-      (!layout && this.machines.some((k) => k.name === m && k.state === "connected")) ||
-      spaces().some((s) => (s.machine ?? null) === m && !this.shown.has(s.id))
+    const remote = [...new Set(rows.map((r) => r.w.machine).filter(Boolean))].sort();
+    const local = rows.filter((r) => !r.w.machine);
+    const head = this.localLoading() && !local.length ? [this.loadingRow(t, collapsed)] : local.flatMap(draw);
+    return head.concat(
+      remote.flatMap((m) => {
+        const header = this.machineHeader(m, t, collapsed);
+        if (this.folded.has(m)) return [header];
+        return [header, ...rows.filter((r) => r.w.machine === m).flatMap(draw)];
+      }),
     );
   }
 
-  loadingRow(m, t, collapsed) {
+  localLoading() {
+    return (
+      machines().find((k) => k.name === null)?.layout === "loading" ||
+      spaces().some((s) => !s.machine && !this.shown.has(s.id))
+    );
+  }
+
+  loadingRow(t, collapsed) {
     return div()
-      .id(`machine-loading-${m ?? "local"}`)
+      .id("machine-loading-local")
       .h(28)
       .flex_none()
       .px(8)
@@ -388,29 +376,13 @@ export class Spaces {
       .child(collapsed ? "…" : "Loading…");
   }
 
-  newSpaceRow(m, t, collapsed) {
-    return h_flex()
-      .id(`machine-new-${m ?? "local"}`)
-      .h(28)
-      .flex_none()
-      .px(8)
-      .gap(7)
-      .items_center()
-      .rounded(7)
-      .text_size(TEXT.small)
-      .text_color(t.dim)
-      .hover((s) => s.bg(t.hover).text_color(t.foreground))
-      .on_click(() => run("space.new", m ? { machine: m } : {}))
-      .child(Icon("plus", 12))
-      .when(!collapsed, (el) => el.child("New space there"));
-  }
-
   machineHeader(m, t, collapsed) {
     const machine = this.machines.find((k) => k.name === m);
-    const connected = !m || machine?.state === "connected";
+    const connected = machine?.state === "connected";
     const head = h_flex()
-      .id(`machine-${m ?? "local"}`)
+      .id(`machine-${m}`)
       .h(26)
+      .mt(14)
       .flex_none()
       .px(collapsed ? 2 : 8)
       .gap(7)
@@ -424,45 +396,13 @@ export class Spaces {
         localStorage.setItem("machines.folded", JSON.stringify([...this.folded]));
         cx.notify();
       })
-      .child(Icon(m ? "server" : "monitor", 13));
+      .child(Icon("server", 13));
     if (collapsed) return head;
     return head
-      .child(
-        div()
-          .flex_1()
-          .truncate()
-          .child(m ?? "This computer"),
-      )
+      .child(div().flex_1().truncate().child(m))
       .when(!connected, (el) =>
-        el.child(
-          div()
-            .flex_none()
-            .child((machine?.state ?? "asleep").replace(/_/g, " ")),
-        ),
-      )
-      .when(connected, (el) => el.child(this.machineAddButton(m, t)))
-      .child(
-        div()
-          .size(6)
-          .rounded(3)
-          .flex_none()
-          .bg(connected ? t.ansi2 : t.dim),
-      )
-      .child(Icon(`chevron-${this.folded.has(m) ? "right" : "down"}`, 11));
-  }
-
-  machineAddButton(m, t) {
-    return div()
-      .id(`machine-add-${m ?? "local"}`)
-      .flex_none()
-      .px(4)
-      .rounded(4)
-      .hover((s) => s.bg(t.hover).text_color(t.foreground))
-      .on_click((_e, cx) => {
-        cx.stop_propagation();
-        run("space.new", m ? { machine: m } : {});
-      })
-      .child("+");
+        el.child(div().flex_none().child((machine?.state ?? "asleep").replace(/_/g, " "))),
+      );
   }
 
   // ── Branch and PR descriptions ───────────────────────────────────────────
