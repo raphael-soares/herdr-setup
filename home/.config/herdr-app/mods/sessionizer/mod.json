@@ -17,6 +17,12 @@
       "~/Code",
       "/home/raphael"
     ],
-    "ssh_space": "SSH"
+    "ssh_space": "SSH",
+    "pinned": [
+      {
+        "path": "~",
+        "name": "Default"
+      }
+    ]
   }
 }
