@@ -119,6 +119,11 @@ export class Lists {
     const t = theme();
     const collapsed = this.spaces.collapsed();
     const kb = this.handle.is_focused();
+    // flow's resize chord reads this to move the sidebar's edge instead of a pane's.
+    if (kb !== this.kbShared) {
+      this.kbShared = kb;
+      setShared("sidebar.focused", kb);
+    }
     const root = v_flex()
       .id("better-sidebar-lists")
       .size_full()

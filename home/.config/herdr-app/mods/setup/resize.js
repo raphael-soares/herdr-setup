@@ -1,9 +1,10 @@
 // Modo de redimensionar, como o `bind -r` do tmux: h/j/k/l (ou H/J/K/L) seguem
-// movendo a borda enquanto cada toque chega antes de REPEAT ms.
+// movendo a borda enquanto cada toque chega antes de REPEAT ms. O overlay só segura
+// o teclado e não desenha nada: a borda andando já é o retorno.
 // Props { pane } ou { block: "sidebar" }. Outra tecla, Esc ou o prazo fecham.
 
 import { div } from "gpui-kit";
-import { run, props, layout, openOverlay, closeOverlay, theme } from "herdr";
+import { run, props, layout, openOverlay, closeOverlay } from "herdr";
 import { findNode } from "./sidebar/views/find-node.js";
 
 const REPEAT = 500;
@@ -24,7 +25,7 @@ function step(target, direction) {
 // Primeiro passo já move a borda; o modo aberto segura as repetições.
 export function startResize(target, direction) {
   step(target, direction);
-  openOverlay({ mod: "setup", kind: "popup", at: "top", offset: 40, width: 140, height: 28, props: { view: "resize", ...target } });
+  openOverlay({ mod: "setup", kind: "popup", frame: "none", at: "top", width: 1, height: 1, props: { view: "resize", ...target } });
 }
 
 export class Resize {
@@ -43,7 +44,6 @@ export class Resize {
   }
 
   render() {
-    const t = theme();
     const p = props();
     return div()
       .id("resize")
@@ -55,14 +55,6 @@ export class Resize {
         step(p.pane ? { pane: p.pane } : { block: p.block }, dir);
         this.arm(cx);
       })
-      .size_full()
-      .flex()
-      .items_center()
-      .justify_center()
-      .rounded(8)
-      .bg(t.popover)
-      .text_size(12)
-      .text_color(t.muted)
-      .child(p.pane ? "resize  h j k l" : "resize  h l");
+      .size_full();
   }
 }

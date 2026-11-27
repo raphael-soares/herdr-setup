@@ -1,7 +1,8 @@
 import { div } from "gpui-kit";
-import { spaces, focused, panes, terminals, run, shared, setShared, nextCommand, notify, openOverlay, checking } from "herdr";
+import { spaces, focused, panes, terminals, run, shared, setShared, nextCommand, notify, openOverlay, checking, layout } from "herdr";
 import { openPart, toggle, forgetAll } from "./overlays.js";
 import { startResize } from "./resize.js";
+import { findNode } from "./sidebar/views/find-node.js";
 
 // Always-on floating block: remembers the previous space, shows the tab bar
 // only in the layout without sidebar when there is more than one tab, and opens menus from the keyboard.
@@ -24,9 +25,16 @@ export class Flow {
     });
   }
 
+  // Sideways, the sidebar's edge moves when the sidebar has focus or the tab has a single
+  // pane (its only shared edge is the sidebar's); with more panes the focused one moves.
   resize(direction) {
-    const pane = focused()?.pane;
-    if (pane) startResize({ pane }, direction);
+    const f = focused();
+    const sidebar = findNode(layout(), "sidebar");
+    const sideways = direction === "left" || direction === "right";
+    const lone = f != null && panes().filter((p) => p.tab === f.tab).length === 1;
+    if (sideways && sidebar && !sidebar.hidden && (shared("sidebar.focused") || lone))
+      return startResize({ block: "sidebar" }, direction);
+    if (f?.pane) startResize({ pane: f.pane }, direction);
   }
 
   back() {
