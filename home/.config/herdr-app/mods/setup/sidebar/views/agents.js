@@ -669,7 +669,6 @@ export class Agents {
       .child(
         div()
           .min_w(0)
-          .max_w(namesSpace ? 140 : 200)
           .truncate()
           .text_color(idle ? t.muted : t.foreground)
           .child(name),
