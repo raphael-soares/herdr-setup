@@ -139,7 +139,7 @@ export class Automations {
   }
 
   // "Disappears once seen": finished runs land in this.fresh and are marked
-  // seen right away, which also clears the dot on the title robot.
+  // seen right away.
   collect(cx) {
     const add = this.runs.filter((r) => FINISHED.has(r.status) && !r.seen && !this.added.has(r.run_id));
     if (!add.length) return;

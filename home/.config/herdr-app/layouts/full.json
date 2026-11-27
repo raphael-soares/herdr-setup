@@ -9,19 +9,13 @@
     {
       "id": "sidebar",
       "type": "column",
+      "padding": [10, 0],
       "children": [
         {
           "id": "brand",
           "type": "block",
-          "content": {
-            "mod": "setup",
-            "props": {
-              "view": "title"
-            }
-          },
-          "size": {
-            "px": 46
-          },
+          "content": { "mod": "setup", "props": { "view": "title" } },
+          "size": { "px": 46 },
           "window_drag": true
         },
         {
@@ -90,7 +84,7 @@
       },
       "min": 44,
       "max": 480,
-      "background": "chrome",
+      "background": "selected",
       "resizable": false
     },
     {
@@ -154,15 +148,16 @@
                   "background": "background",
                   "border": {
                     "width": 1,
-                    "color": "border"
+                    "color": "#00000000"
                   },
                   "focus": {
                     "width": 1,
-                    "color": "dim"
+                    "color": "#b9c18b55"
                   },
                   "radius": 6,
                   "gap": 8,
-                  "lone": true
+                  "veil": 0.2,
+                  "lone": false
                 }
               }
             }

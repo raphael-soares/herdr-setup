@@ -11,12 +11,14 @@ import { Usage } from "./usage.js";
 import { Flow } from "./flow.js";
 import { Automations } from "./automations.js";
 import { Confirm } from "./confirm.js";
+import { Menu } from "./menu.js";
+import { Resize } from "./resize.js";
 
 // One mod for every piece that isn't Herdr's: a mod can't import outside its own
 // folder, so this is how the pieces share code. `view` in props picks the piece.
 const PARTS = {
   spaces: Spaces, lists: Lists, agents: Agents, footer: Footer, "panel-toggle": PanelToggle,
-  title: Title, usage: Usage, flow: Flow, automations: Automations, confirm: Confirm,
+  title: Title, usage: Usage, flow: Flow, automations: Automations, confirm: Confirm, menu: Menu, resize: Resize,
 };
 
 export default class Setup extends View {

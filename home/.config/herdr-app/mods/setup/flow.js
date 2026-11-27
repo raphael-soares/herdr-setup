@@ -1,6 +1,7 @@
 import { div } from "gpui-kit";
 import { spaces, focused, panes, terminals, run, shared, setShared, nextCommand, notify, openOverlay, checking } from "herdr";
 import { openPart, toggle, forgetAll } from "./overlays.js";
+import { startResize } from "./resize.js";
 
 // Always-on floating block: remembers the previous space, shows the tab bar
 // only in the layout without sidebar when there is more than one tab, and opens menus from the keyboard.
@@ -18,8 +19,14 @@ export class Flow {
         else if (c.startsWith("worktree-")) this.worktree(c.slice("worktree-".length));
         else if (c === "sidebar") this.sidebar();
         else if (c.startsWith("close-")) this.closeFocused(c.slice("close-".length));
+        else if (c.startsWith("resize-")) this.resize(c.slice("resize-".length));
       }
     });
+  }
+
+  resize(direction) {
+    const pane = focused()?.pane;
+    if (pane) startResize({ pane }, direction);
   }
 
   back() {
@@ -59,23 +66,24 @@ export class Flow {
     run("layout.switch", { name: shared("layout") === "compact" ? "full" : "compact" });
   }
 
-  // Only closing a tab asks for confirmation, including via the x on its last pane.
-  // Pane and space close right away, and the last tab takes the space with it, unasked.
+  // The x on a tab's last pane closes the tab after asking, and the last tab takes its space with it.
+  // A pane with siblings closes right away.
   closeFocused(what) {
     const f = focused();
     const space = spaces().find((s) => s.active);
     if (!f || !space) return;
-    const closeSpace = () => run("space.close", { id: space.id, confirmed: true });
-    const lastTab = space.tabs.length === 1;
-    if (what === "space") return closeSpace();
     if (what === "pane") {
       if (!f.pane) return;
       if (panes().filter((p) => p.tab === f.tab).length > 1) return run("pane.close", { pane: f.pane });
     }
     const tab = space.tabs.find((t) => t.id === f.tab);
     if (!tab) return;
-    if (lastTab) return closeSpace();
-    openPart("confirm", { title: `Close tab ${tab.name}?`, detail: "Its terminals will end.", command: { name: "tab.close", args: { id: tab.id, confirmed: true } } });
+    const lastTab = space.tabs.length === 1;
+    openPart("confirm", {
+      title: `Close tab ${tab.name}?`,
+      detail: lastTab ? `Space ${space.name} closes with it.` : "Its terminals will end.",
+      command: { name: "tab.close", args: { id: tab.id, confirmed: true } },
+    });
   }
 
   worktree(action) {

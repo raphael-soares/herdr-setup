@@ -3,6 +3,13 @@
   "place": "none",
   "title": "Setup",
   "focusable": true,
+  "palette": [
+    { "title": "Previous space", "command": "setup.back", "group": "Setup", "words": "voltar anterior back" },
+    { "title": "New space or tab", "command": "setup.new", "group": "Setup", "words": "novo criar" },
+    { "title": "SSH sessions", "command": "setup.ssh", "group": "Setup", "words": "remoto maquina" },
+    { "title": "Automations", "command": "setup.automations", "group": "Setup", "words": "automacoes" },
+    { "title": "Toggle sidebar", "command": "setup.sidebar", "group": "Setup", "words": "barra lateral" }
+  ],
   "settings": {
     "pull_request_status": false
   }

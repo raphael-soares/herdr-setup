@@ -1,7 +1,8 @@
 // The button that hides and shows the right panel, in its own small block beside
 // the tab bar, and the key command that does the same.
 import { h_flex } from "gpui-base";
-import { theme, run, props, layout, nextCommand } from "herdr";
+import { run, props, layout, nextCommand } from "herdr";
+import { theme } from "./tone.js";
 import { findNode } from "./find-node.js";
 import { IconButton } from "./ui.js";
 

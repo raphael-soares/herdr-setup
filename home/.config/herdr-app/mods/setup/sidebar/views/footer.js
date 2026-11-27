@@ -3,7 +3,8 @@
 // opens Better Config, and shows only when that mod is installed.
 import { div } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { theme, run, updates, readTextFile, appHome } from "herdr";
+import { run, updates, readTextFile, appHome } from "herdr";
+import { theme } from "./tone.js";
 import { Icon, SIZE } from "./ui.js";
 
 export class Footer {

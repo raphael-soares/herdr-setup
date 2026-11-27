@@ -1,6 +1,7 @@
 import { div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { spaces, theme, exec, home, watchFolder, checking } from "herdr";
+import { spaces, theme, exec, home, watchFolder, checking, run } from "herdr";
+import { Icon, TEXT, FONT } from "./sidebar/views/ui.js";
 import { toggle } from "./overlays.js";
 
 const FINISHED = ["done", "failed", "cancelled", "missed"];
@@ -34,19 +35,24 @@ export class Title {
     cx.notify();
   }
 
+  // AdwHeaderBar: the title centered and bold, flat buttons at each end.
   render() {
     const t = theme();
     const name = spaces().find((s) => s.active)?.name ?? "";
     // The block drags the window: without the stop on mouse_down a click becomes a drag.
-    const automations = div().id("automations").relative().size(26).flex_none().flex().items_center().justify_center().rounded(6)
-      .text_color(t.dim).hover((s) => s.bg(t.hover).text_color(t.foreground))
-      .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
-      .on_click(() => toggle("automations"))
-      .child(svg("mods/setup/icons/robo.svg").size(16))
+    const button = (id, onClick) =>
+      div().id(id).relative().size(30).flex_none().flex().items_center().justify_center().rounded(8)
+        .text_color(t.foreground).hover((s) => s.bg(t.hover))
+        .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+        .on_click(onClick);
+    const sidebar = button("sidebar", () => run("setup.sidebar")).child(Icon("sidebar-show", 16).text_color(t.foreground));
+    const automations = button("automations", () => toggle("automations"))
+      .child(svg("mods/setup/icons/automations.svg").size(16))
       .when(this.pending.length > 0, (el) => el.child(
-        div().absolute().top(4).right(4).size(7).rounded(4).bg(this.alert ? t.ansi1 : t.accent)));
-    return h_flex().size_full().bg(t.chrome).pl(14).pr(10).gap(6).items_center().text_size(13.5)
-      .child(div().flex_1().min_w(0).font_semibold().truncate().text_color(t.foreground).child(name))
-      .child(automations);
+        div().absolute().top(5).right(5).size(7).rounded(4).bg(this.alert ? t.ansi1 : t.accent)));
+    return h_flex().size_full().px(8).pb(6).items_center().font_family(FONT).text_size(TEXT.body)
+      .child(h_flex().flex_1().child(sidebar))
+      .child(div().min_w(0).max_w(160).font_bold().truncate().text_color(t.foreground).child(name))
+      .child(h_flex().flex_1().justify_end().child(automations));
   }
 }

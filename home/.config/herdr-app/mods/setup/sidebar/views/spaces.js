@@ -7,23 +7,25 @@ import {
   machines,
   panes,
   run,
-  openOverlay,
   hc,
-  theme,
   shared,
   setShared,
   watchFolder,
   window,
   layout,
 } from "herdr";
+import { theme } from "./tone.js";
+import { openMenu } from "../../overlays.js";
 import { PRStatusObserver, prPlaceKey, prAppearance } from "../git/pr-status.js";
 import { spaceFolder, checkoutKey, readCheckout } from "../git/checkouts.js";
 import { loadSettings, duration } from "../settings.js";
 import { findNode } from "./find-node.js";
-import { TEXT, Icon, IconButton, Badge, Rail } from "./ui.js";
+import { TEXT, Icon, IconButton, Badge } from "./ui.js";
+import { byMachine } from "./sections.js";
 
 const USUAL_BRANCHES = new Set(["main", "master"]);
-const rowHeight = ({ tree }) => (tree ? 28 : 30);
+// Adwaita's `heading` row: a space's name sits right above its items; the gap above it separates spaces.
+const ROW_HEIGHT = 28;
 
 // Watches and terminal events handle most changes. Poll visible repositories
 // occasionally to catch edits and commits made outside Herdr.
@@ -31,17 +33,6 @@ const GIT_FALLBACK_MS = 15000;
 // Preferences a person may change in the installed mod.json under `settings`.
 // `combined` is read by the lists view: tabs, or spaces above agents.
 const DEFAULT_SETTINGS = { git: { retry_after: "15s" }, pull_request_status: true, combined: true };
-
-// What a stored color name looks like on an avatar (the same in every mod
-// that draws space avatars): one strong color per hue, light and dark alike.
-const AVATAR_COLORS = {
-  ansi6: "#22a99a",
-  ansi3: "#e3814f",
-  ansi4: "#5b8def",
-  ansi5: "#8b7cf6",
-  ansi2: "#3fae6a",
-  ansi1: "#d9649a",
-};
 
 // A space speaks up only when something in it needs you.
 function glyph(status) {
@@ -77,12 +68,6 @@ export class Spaces {
     this.pressed = null;
     this.over = null;
     this.machines = [];
-    this.folded = new Set();
-    try {
-      this.folded = new Set(JSON.parse(localStorage.getItem("machines.folded") ?? "[]"));
-    } catch {
-      /* Ignore invalid saved UI state. */
-    }
     this.refreshMachines(cx);
     cx.timer.every(15000, (cx) => this.refreshMachines(cx));
     // `git status` walks the whole tree, on another machine a process there:
@@ -195,8 +180,7 @@ export class Spaces {
     const every = duration(this.settings.git.retry_after, GIT_FALLBACK_MS);
     for (const key of used) {
       const watched = this.git[key] || this.unsure.has(key);
-      const shown = !this.folded.has(JSON.parse(key)[0]);
-      if (watched && shown && now - (this.checked[key] ?? 0) > every) due.add(key);
+      if (watched && now - (this.checked[key] ?? 0) > every) due.add(key);
     }
   }
 
@@ -302,14 +286,7 @@ export class Spaces {
   }
 
   menu(w) {
-    // A popup is as tall as its items; height is only the most.
-    openOverlay({
-      mod: "menu",
-      kind: "popup",
-      width: 200,
-      height: 260,
-      props: { tab: "space", target: { id: w.id } },
-    });
+    openMenu("space", { id: w.id });
   }
 
   // Spaces in order, each worktree space moved under its main checkout's.
@@ -340,22 +317,15 @@ export class Spaces {
     return out;
   }
 
-  // Local rows first, then a header per other machine that has spaces. A machine
-  // with none stays out: the Sessionizer opens the first space there.
+  // Local spaces first, then each other machine's, tagged with its name. A machine
+  // with no spaces stays out: the Sessionizer opens the first space there.
   grouped(t, collapsed) {
-    const rows = this.ordered();
     // `under`, set by the lists view, adds rows beneath a space: its agents.
-    const draw = (r) => (collapsed ? [this.compact(r, t)] : [this.row(r, t), ...(this.under?.(r) ?? [])]);
-    const remote = [...new Set(rows.map((r) => r.w.machine).filter(Boolean))].sort();
-    const local = rows.filter((r) => !r.w.machine);
-    const head = this.localLoading() && !local.length ? [this.loadingRow(t, collapsed)] : local.flatMap(draw);
-    return head.concat(
-      remote.flatMap((m) => {
-        const header = this.machineHeader(m, t, collapsed);
-        if (this.folded.has(m)) return [header];
-        return [header, ...rows.filter((r) => r.w.machine === m).flatMap(draw)];
-      }),
-    );
+    const draw = (r, n) =>
+      collapsed ? [this.compact(r, t)] : [this.row({ ...r, first: n === 0 }, t), ...(this.under?.(r) ?? [])];
+    const rows = byMachine(this.ordered());
+    const head = this.localLoading() && !rows.some((r) => !r.w.machine) ? [this.loadingRow(t, collapsed)] : [];
+    return head.concat(rows.flatMap(draw));
   }
 
   localLoading() {
@@ -376,33 +346,18 @@ export class Spaces {
       .child(collapsed ? "…" : "Loading…");
   }
 
-  machineHeader(m, t, collapsed) {
-    const machine = this.machines.find((k) => k.name === m);
-    const connected = machine?.state === "connected";
-    const head = h_flex()
-      .id(`machine-${m}`)
-      .h(26)
-      .mt(14)
+  // Another machine's name at the right of its space, and its state while away.
+  machineTag(m, t) {
+    const state = this.machines.find((k) => k.name === m)?.state;
+    const away = state && state !== "connected" ? ` · ${state.replace(/_/g, " ")}` : "";
+    return h_flex()
       .flex_none()
-      .px(collapsed ? 2 : 8)
-      .gap(7)
+      .gap(4)
       .items_center()
       .text_size(TEXT.caption)
       .text_color(t.dim)
-      .cursor_pointer()
-      .hover((s) => s.bg(t.hover))
-      .on_click((_e, cx) => {
-        if (!this.folded.delete(m)) this.folded.add(m);
-        localStorage.setItem("machines.folded", JSON.stringify([...this.folded]));
-        cx.notify();
-      })
-      .child(Icon("server", 13));
-    if (collapsed) return head;
-    return head
-      .child(div().flex_1().truncate().child(m))
-      .when(!connected, (el) =>
-        el.child(div().flex_none().child((machine?.state ?? "asleep").replace(/_/g, " "))),
-      );
+      .child(Icon("server", 11).text_color(t.dim))
+      .child(m + away);
   }
 
   // ── Branch and PR descriptions ───────────────────────────────────────────
@@ -540,16 +495,17 @@ export class Spaces {
   }
   // ── Expanded/compact rows and sidebar rendering ──────────────────────────
 
-  row({ w, i, g, tree }, t) {
+  row({ w, i, g, tree, first }, t) {
     // Local: nada de git na sidebar (branch, ahead/behind, PR).
     const hasPRLine = false;
     // One row is lit: under the lists view, the focused agent beneath takes it.
     const lit = w.active && !this.quiet?.(w);
     const row = v_flex()
+      .when(!tree && !first, (el) => el.mt(18))
       .relative()
       .id(`space-${w.id}`)
       .px(8)
-      .h(rowHeight({ tree }) + (hasPRLine ? 22 : 0))
+      .h(ROW_HEIGHT + (hasPRLine ? 22 : 0))
       .flex_none()
       .justify_center()
       .rounded(8)
@@ -557,14 +513,11 @@ export class Spaces {
       .when(!lit, (el) => el.hover((s) => s.bg(t.hover)))
       .when(this.pressed === i && this.over !== i, (el) => el.opacity(0.5))
       .on_mouse_down("right", () => this.menu(w))
-      .child(this.rowTitle(w, g, tree, t))
+      .child(this.rowTitle(w, t))
       .when(hasPRLine, (el) => el.child(this.prLine(w, t, Boolean(tree))));
     if (this.pressed !== null && this.over === i && this.pressed !== i)
       row.child(this.dropLine(i, t));
-    const dragged = this.withDragging(row, w, i);
-    // Nested under the lists view, a worktree hangs from its main space's line.
-    if (!(tree && this.under)) return dragged;
-    return h_flex().child(Rail(tree.startsWith("└") ? "└" : "├", 14)).child(dragged.flex_1().min_w(0));
+    return this.withDragging(row, w, i);
   }
 
   // Where the dragged space would land.
@@ -606,31 +559,15 @@ export class Spaces {
       });
   }
 
-  rowTitle(w, g, tree, t) {
+  // Adwaita's `heading`: small, bold, dim.
+  rowTitle(w, t) {
     return h_flex()
-      .gap(9)
+      .gap(6)
       .items_center()
-      .when(Boolean(tree), (el) => el.when(!this.under, (e) => e.pl(22)))
-      .child(this.avatar(w, t))
       .child(
-        div().min_w(0).max_w(150).truncate().tooltip(w.name).text_color(t.foreground).child(w.name),
-      );
-  }
-
-  avatar(w, t) {
-    const color = (shared("space.colors") ?? {})[w.id] ?? "ansi6";
-    const fill = color.startsWith("#") ? color : (AVATAR_COLORS[color] ?? t[color]);
-    return h_flex()
-      .size(18)
-      .flex_none()
-      .rounded(5)
-      .bg(fill)
-      .items_center()
-      .justify_center()
-      .text_size(TEXT.avatar)
-      .font_bold()
-      .text_color("#ffffff")
-      .child([...w.name][0]?.toUpperCase() ?? "?");
+        div().flex_1().min_w(0).truncate().tooltip(w.name).text_size(TEXT.label).font_bold().text_color(t.dim).child(w.name),
+      )
+      .when(Boolean(w.machine), (el) => el.child(this.machineTag(w.machine, t)));
   }
 
   compact({ w, i }, t) {

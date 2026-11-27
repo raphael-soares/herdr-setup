@@ -1,6 +1,8 @@
 import { div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { theme, exec, home, openOverlay, notify, terminals, panes, focused, run } from "herdr";
+import { exec, home, openOverlay, notify, terminals, panes, focused, run } from "herdr";
+import { theme } from "./sidebar/views/tone.js";
+import { FONT } from "./sidebar/views/ui.js";
 
 // omp handles the tokens; every 5 min it asks each profile (`omp` and `ompe`) for its usage.
 const PROFILES = [
@@ -9,7 +11,8 @@ const PROFILES = [
 ];
 const INTERVAL = 5 * 60_000;
 const WINDOW = { "5h": "5 hours", "7d": "7 days" };
-const HEIGHTS = [80, 48];
+// Each profile's header and its limit rows.
+const HEIGHTS = [90, 54];
 
 function remaining(ms) {
   const m = Math.max(0, Math.round((ms - Date.now()) / 60_000));
@@ -78,7 +81,7 @@ export class Usage {
   // The layout block has a fixed height and follows how many profiles show up. At 0 px the
   // block does not render, so the timer brings it back, not render.
   adjust(vis) {
-    const px = vis.length ? 20 + vis.reduce((s, i) => s + HEIGHTS[i], 0) + 16 * (vis.length - 1) : 0;
+    const px = vis.length ? 8 + vis.reduce((s, i) => s + HEIGHTS[i], 0) + 16 * (vis.length - 1) : 0;
     if (px === this.size) return;
     this.size = px;
     this.later(async () => run("layout.resize", { id: "usage", px }));
@@ -102,7 +105,7 @@ export class Usage {
     const t = theme();
     const bar = (f, c) => {
       const v = Math.max(0, Math.min(1, f));
-      return h_flex().w_full().h(4).rounded_full().overflow_hidden().bg(t.border)
+      return h_flex().w_full().h(6).rounded_full().overflow_hidden().bg(t.border)
         .child(div().h_full().rounded_full().bg(v >= 0.9 ? t.blocked : c).flex_basis(0).flex_grow(v))
         .child(div().h_full().flex_basis(0).flex_grow(1 - v));
     };
@@ -117,9 +120,10 @@ export class Usage {
       const hint = `${r.saved} saved, ${r.ready} usable now` + (r.expires ? `, expires in ${remaining(Date.parse(r.expires))}` : "");
       return div()
         .id("usage-resets")
-        .px(6)
-        .rounded(5)
+        .px(8)
+        .rounded_full()
         .text_size(10.5)
+        .font_bold()
         .bg(`${c}26`)
         .text_color(c)
         .tooltip(hint)
@@ -130,7 +134,7 @@ export class Usage {
       const c = t[p.color];
       return v_flex()
         .id(`usage-${i}`)
-        .gap(8)
+        .gap(10)
         .cursor_pointer()
         .on_click(() => this.details(p))
         .when(d.stale, (el) => el.opacity(0.5))
@@ -143,11 +147,13 @@ export class Usage {
     this.adjust(vis);
     return v_flex()
       .size_full()
-      .px(14)
-      .py(10)
+      // Lines up with the items' text above.
+      .px(16)
+      .pt(8)
       .gap(16)
       .justify_end()
-      .text_size(11.5)
+      .font_family(FONT)
+      .text_size(12.5)
       .children(vis.map((i) => section(PROFILES[i], i)));
   }
 }

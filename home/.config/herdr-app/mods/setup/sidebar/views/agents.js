@@ -11,13 +11,13 @@ import {
   focused,
   spaces,
   run,
-  theme,
   shared,
   setShared,
   setAgentOrder,
   window,
   layout,
 } from "herdr";
+import { theme } from "./tone.js";
 import { findNode } from "./find-node.js";
 import { TEXT, Icon, IconButton, GroupHeader, Menu, MenuLabel, MenuOption } from "./ui.js";
 
@@ -244,16 +244,10 @@ export class Agents {
     run("terminal.peek", { terminal: addr });
   }
 
-  // Live sub-agents of `addr`, depth first, each with the tree lines in front of it.
-  tree(all, addr, lead = []) {
+  // Live sub-agents of `addr`, depth first.
+  tree(all, addr) {
     const kids = all.filter((k) => k.parent === addr && k.state === "live");
-    return kids.flatMap((k, i) => {
-      const last = i === kids.length - 1;
-      return [
-        { t: k, lines: [...lead, last ? "└" : "├"] },
-        ...this.tree(all, k.address, [...lead, last ? "" : "│"]),
-      ];
-    });
+    return kids.flatMap((k) => [{ t: k }, ...this.tree(all, k.address)]);
   }
 
   subRow(t, s, shown, compact) {
@@ -263,10 +257,10 @@ export class Agents {
     const on = k.address === shown;
     return h_flex()
       .id(`sub-${k.address}`)
-      .pl(39)
+      .pl(8)
       .pr(8)
       .rounded(8)
-      .h(26)
+      .h(32)
       .flex_none()
       .gap(0)
       .items_center()
@@ -274,19 +268,6 @@ export class Agents {
       .when(on, (el) => el.bg(t.raised))
       .hover((s) => s.bg(t.hover))
       .on_click(() => this.peek(k.address))
-      .children(
-        s.lines.map((l) =>
-          div()
-            .self_start()
-            .mt(-4)
-            .w(9)
-            .h(17)
-            .mr(4)
-            .flex_none()
-            .when(Boolean(l), (el) => el.border_l(1.5).border_color(t.input))
-            .when(l === "└" || l === "├", (el) => el.border_b(1.5).rounded_bl(6)),
-        ),
-      )
       .when(Boolean(pic), (el) => el.child(div().mr(8).child(pic)))
       .child(
         div()
@@ -302,7 +283,7 @@ export class Agents {
   status(t, a, compact = false) {
     const color = t[a.status] ?? t.dim;
     if (a.status === "working")
-      return Icon("spinner").size(12).mx(1).flex_none().text_color(t.working).spin(900);
+      return Icon("spinner").size(14).flex_none().text_color(t.working).spin(900);
     if (a.status === "blocked" && compact)
       return div()
         .size(14)
@@ -319,12 +300,12 @@ export class Agents {
     if (a.status === "blocked")
       return div()
         .flex_none()
-        .px(6)
-        .h(18)
-        .rounded(5)
+        .px(8)
+        .h(20)
+        .rounded_full()
         .bg(t.blocked + "26")
-        .text_size(TEXT.avatar)
-        .font_semibold()
+        .text_size(TEXT.badge)
+        .font_bold()
         .text_color(t.blocked)
         .flex()
         .items_center()
@@ -563,7 +544,7 @@ export class Agents {
     return h_flex()
       .id(`ag-${a.address}`)
       .px(8)
-      .h(30)
+      .h(36)
       .flex_none()
       .rounded(8)
       .items_center()
@@ -600,7 +581,7 @@ export class Agents {
     return h_flex()
       .id(`tab-${tab.id}`)
       .px(8)
-      .h(30)
+      .h(36)
       .flex_none()
       .rounded(8)
       .items_center()
@@ -631,7 +612,7 @@ export class Agents {
     return h_flex()
       .id(`pane-${p.pane}`)
       .px(8)
-      .h(26)
+      .h(36)
       .flex_none()
       .rounded(8)
       .items_center()

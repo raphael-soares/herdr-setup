@@ -32,3 +32,8 @@ export function toggle(view, extra) {
 export function forget(view, id) {
   if (shared(key(view)) === id) setShared(key(view), null);
 }
+
+// A popup is as tall as its items; height is only the most. Without `at`, at the pointer.
+export function openMenu(tab, target, at) {
+  openOverlay({ mod: "setup", kind: "popup", width: 200, height: 260, ...(at ? { at } : {}), props: { view: "menu", tab, target } });
+}

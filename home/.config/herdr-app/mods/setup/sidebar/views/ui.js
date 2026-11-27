@@ -3,18 +3,22 @@
 // Herdr commands. Components return ordinary elements, so callers can chain.
 import { div, svg } from "gpui-kit";
 import { h_flex, v_flex, Popover } from "gpui-base";
-import { theme } from "herdr";
+import { theme } from "./tone.js";
 
-// Plain px: Herdr scales a mod's sizes by zoom itself.
+// Plain px: Herdr scales a mod's sizes by zoom itself. GNOME's scale: body and
+// `heading` at 11pt, `caption` at 9pt.
 export const TEXT = {
-  badge: 10,
-  avatar: 10.5,
-  caption: 11,
-  label: 11.5,
-  small: 12,
-  menu: 12.8,
-  body: 13,
+  badge: 10.5,
+  avatar: 11,
+  caption: 12,
+  label: 13,
+  small: 13.5,
+  menu: 14,
+  body: 14.5,
 };
+// Adwaita Sans is Inter with GNOME's tweaks, but ships as one variable font and GPUI
+// draws it at a single weight; static Inter keeps bold headings.
+export const FONT = "Inter";
 const RADIUS = { small: 4, control: 6, row: 7 };
 export const SIZE = { group: 30, menu: 31, row: 28, icon: 26, iconSmall: 20 };
 
@@ -96,25 +100,6 @@ export function GroupHeader({
     .child(Badge(count))
     .child(div().flex_1())
     .when(Boolean(action), (el) => el.child(action));
-}
-
-// One step of a tree's line, in front of a nested row: "│" carries on past it,
-// "├" branches to it, "└" ends at it, "" leaves the column blank. `mid` is how far
-// down the row its title sits, where the branch turns. Each piece runs from UP px
-// above its row to UP px above the next, so it reaches the avatar's bottom edge
-// without crossing it, and pieces never overlap: the line color is translucent.
-const UP = 6;
-export function Rail(kind, mid = 15) {
-  const t = theme();
-  const line = () => div().absolute().left(17.5).top(-UP).border_color(t.input);
-  return div()
-    .relative()
-    .w(24)
-    .flex_none()
-    .self_stretch()
-    .when(kind === "│" || kind === "├", (el) => el.child(line().bottom(UP).w(2).border_l(1.5)))
-    .when(kind === "├", (el) => el.child(line().top(mid - 1.5).left(18.5).w(6).h(1.5).border_b(1.5)))
-    .when(kind === "└", (el) => el.child(line().h(mid + UP).w(7).border_l(1.5).border_b(1.5).rounded_bl(6)));
 }
 
 // A popup anchored to its trigger.
